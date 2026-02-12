@@ -40,20 +40,26 @@
     <p class="error">{{ error }}</p>
     <br>
     <button @click="quiz_crt" class="btn">начать создание</button>
+    <br>
+    <br>
+    <button @click="back_to_menu" class="btn">отмена</button>
 
 
   </div>
 
   <!-- Поиск викторины  -->
-  <div v-if="quiz.Start_quiz==true && !quiz.Ans">
+  <div v-if="quiz.Start_quiz==true && !quiz.Ans && !quiz.isPlaying">
     <div class="inputbox">
-      <input required="required" type="text" v-model="quiz.id">
-      <span>введите id викторины</span>
+      <input required="required" type="text" v-model="quiz.title">
+      <span>название викторины</span>
       <i></i>
     </div>
     <p class="error">{{ error }}</p>
     <br>
     <button @click="quiz_check" class="btn">пройти</button>
+    <br>
+    <br>
+    <button @click="back_to_menu" class="btn">отмена</button>
 
   </div>
 
@@ -99,49 +105,43 @@
 
   </div>
 
-  <!-- Прохождение викторины -->
-  <div v-if="false">
-    <div v-if="curslide = 1">
-      a
-    </div>
+<!--прохождение викторины -->
+  <div v-if="quiz.isPlaying">
+    <h2>Викторина: {{ currentQuiz.title }}</h2>
+    <h3>Вопрос {{ quiz.currentSlideIndex + 1 }} из {{ currentQuiz.slideCount }}</h3>
+    
+    <div class="question-container">
+      <h3>{{ currentSlide.question }}</h3>
       
-    <div v-else-if="curslide = 2">
-      b
+      <div v-for="(option, index) in shuffledOptions" :key="index" class="quantum-radio" @click="selectOption(option)">
+        <input 
+          type="radio" 
+          :id="'option' + index" 
+          :value="option" 
+          v-model="selectedOption"
+          :name="'question' + quiz.currentSlideIndex"
+        >
+        <label :for="'option' + index" class="radio-control"></label>
+        <span class="radio-label">{{ option }}</span>
+      </div>
+      
+      <button @click="nextQuestion" class="btn" :disabled="!selectedOption">
+        {{ quiz.currentSlideIndex < currentQuiz.slideCount - 1 ? 'Следующий вопрос' : 'Завершить' }}
+      </button>
+      
+      <div v-if="showResult" class="result">
+        <p :class="{ correct: isCorrect, incorrect: !isCorrect }">
+          {{ isCorrect ? 'Правильно!' : 'Неправильно!' }}
+        </p>
+        <p v-if="!isCorrect && showCorrectAnswer">
+          Правильный ответ: {{ currentSlide.cor }}
+        </p>
+      </div>
     </div>
-
-    <div v-else-if="curslide = 3">
-      c
-    </div>
-
-    <div v-else-if="curslide = 4">
-      d
-    </div>
-
-    <div v-else-if="curslide = 5">
-      e
-    </div>
-
-    <div v-else-if="curslide = 6">
-      f
-    </div>
-
-    <div v-else-if="curslide = 2">
-      g
-    </div>
-
-    <div v-else-if="curslide = 2">
-      h
-    </div>
-
-    <div v-else-if="curslide = 2">
-      i
-    </div>
-
-    <div v-else>
-      j
-    </div>
+    
+    <br>
+    <button @click="exitQuiz" class="btn">Выйти из викторины</button>
   </div>
-
 </template>
 
 
@@ -162,13 +162,14 @@ export default{
       // Свойства викторины
       quiz: {
         title: '',
-        id: '',
         Start_quiz: false,
         Create_quiz: false,
         continue_create: false,
         slideCount: 2,
         curslide: 0,
         Ans: true,
+        isPlaying: false,
+        currentSlideIndex: 0,
         slide: {
           question: '',
           cor: '',
@@ -179,7 +180,29 @@ export default{
         slides: []
       },
       quizes: [],
-      cur_quiz: null
+      currentQuiz: null, // ИСПРАВЛЕНО: было cur_quiz: null
+      selectedOption: '',
+      showResult: false,
+      isCorrect: false,
+      showCorrectAnswer: false,
+      shuffledOptions: []
+    }
+  },
+  computed: {  // ПЕРЕМЕЩЕНО: computed должен быть перед methods
+    currentSlide() {
+      if (this.currentQuiz && this.currentQuiz.slides) {
+        return this.currentQuiz.slides[this.quiz.currentSlideIndex];
+      }
+      return null;
+    }
+  },
+  watch: {  // watch после computed
+    'quiz.currentSlideIndex': {
+      handler() {
+        this.shuffleOptions();
+        this.resetQuestionState();
+      },
+      immediate: false
     }
   },
   methods: {
@@ -214,7 +237,9 @@ export default{
       this.quiz.Start_quiz = false
       this.quiz.Create_quiz = false
       this.quiz.continue_create = false
-      this.quiz.id = ''
+      this.quiz.isPlaying = false
+      this.currentQuiz = null
+      this.error = ''
     },
     quiz_crt() {
       if(this.quiz.title == '') {
@@ -225,37 +250,30 @@ export default{
       this.quiz.continue_create = true
       this.quiz.Create_quiz = false
       this.quiz.slides = []
-      
-      // Генерируем случайный ID для викторины
-      const newId = Math.random().toString(36).substr(2, 9)
-      
-      this.quizes.push({
-        title: this.quiz.title,
-        id: newId,
-        slideCount: this.quiz.slideCount,
-        createdBy: this.user.name
-      })
-      
-      
-      
-
+      this.quiz.curslide = 0 // ДОБАВЛЕНО
     },
-     quiz_check() {
-      console.log('Введенный ID:', this.quiz.id);
+    quiz_check() {
       console.log('Все викторины:', this.quizes);
-      if(this.quiz.id == '') {
-        this.error = 'ID не введен'
+      if(this.quiz.title == '') {
+        this.error = 'Название не введено' // ИСПРАВЛЕНО
         return;
       }
       
-      // Ищем викторину по ID
-      const foundQuiz = this.quizes.find(q => q.id === this.quiz.id)
+      // Ищем викторину по названию
+      const foundQuiz = this.quizes.find(q => q.title === this.quiz.title) // ИСПРАВЛЕНО
       
-      if(foundQuiz) {
-        this.error = `Найдена викторина: ${foundQuiz.title}`
-        // Здесь будет логика перехода к прохождению викторины
+      if(foundQuiz) { // ИСПРАВЛЕНО
+        this.error = ''
+        this.currentQuiz = foundQuiz
+        this.quiz.isPlaying = true
+        this.quiz.Start_quiz = false
+        this.quiz.currentSlideIndex = 0
+        this.$nextTick(() => { // ДОБАВЛЕНО: ждем обновления DOM
+          this.shuffleOptions()
+          this.resetQuestionState()
+        })
       } else {
-        this.error = 'Викторина с таким ID не найдена'
+        this.error = 'Викторина с таким названием не найдена'
       }
     },
     next_slide() {
@@ -297,19 +315,67 @@ export default{
       // Сохраняем викторину в общий список
       this.quizes.push({
         title: this.quiz.title,
-        id: this.currentQuizId,
         slideCount: this.quiz.slideCount,
-        slides: [...this.quiz.slides], // Копируем массив слайдов
+        slides: [...this.quiz.slides],
         createdBy: this.user.name
-      
       })
       this.back_to_menu()
+    },
+    shuffleOptions() {
+      if (this.currentSlide) {
+        const options = [
+          this.currentSlide.cor,
+          this.currentSlide.wrng1,
+          this.currentSlide.wrng2,
+          this.currentSlide.wrng3
+        ];
+        
+        // Перемешиваем массив опций
+        for (let i = options.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [options[i], options[j]] = [options[j], options[i]];
+        }
+        
+        this.shuffledOptions = options;
+      }
+    },
+    selectOption(option) {
+      this.selectedOption = option;
+    },
+    nextQuestion() {
+      if (!this.currentSlide) return;
+      
+      // Проверяем правильность ответа
+      this.isCorrect = this.selectedOption === this.currentSlide.cor;
+      this.showResult = true;
+      this.showCorrectAnswer = !this.isCorrect;
+      
+      setTimeout(() => {
+        if (this.quiz.currentSlideIndex < this.currentQuiz.slideCount - 1) {
+          // Переходим к следующему вопросу
+          this.quiz.currentSlideIndex++;
+        } else {
+          // Завершаем викторину
+          this.exitQuiz();
+        }
+        this.resetQuestionState();
+      }, 2000);
+    },
+    resetQuestionState() {
+      this.selectedOption = '';
+      this.showResult = false;
+      this.isCorrect = false;
+      this.showCorrectAnswer = false;
+    },
+    exitQuiz() {
+      this.quiz.isPlaying = false;
+      this.quiz.Ans = true;
+      this.currentQuiz = null;
+      this.quiz.currentSlideIndex = 0;
     }
-  
   }
 }
 </script>
-
 
 <style scoped>
 
@@ -430,4 +496,93 @@ export default{
 .inputbox input:focus ~i {
   height: 44px;
 }
+
+/*радио кнопки */
+/* From Uiverse.io by srinivasaiml */ 
+.quantum-radio {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+.radio-label {
+  color: aqua;
+}
+
+.quantum-radio input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.quantum-radio .radio-control {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #4a4a8a;
+  border-radius: 50%;
+  margin-right: 15px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.quantum-radio .radio-control::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: conic-gradient(
+    from 90deg,
+    #00ffcc,
+    #00b3ff,
+    #0066ff,
+    #00b3ff,
+    #00ffcc
+  );
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  transition: all 0.4s ease;
+  opacity: 0;
+}
+
+.quantum-radio:hover .radio-control {
+  border-color: #00ffcc;
+}
+
+.quantum-radio input:checked ~ .radio-control {
+  border-color: #00ffcc;
+}
+
+.quantum-radio input:checked ~ .radio-control::before {
+  width: 24px;
+  height: 24px;
+  opacity: 1;
+  animation: quantum-spin 2s linear infinite;
+}
+
+.quantum-radio input:checked ~ .radio-control::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: #00ffcc;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 5px #00ffcc;
+}
+
+@keyframes quantum-spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 </style>
