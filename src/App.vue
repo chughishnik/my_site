@@ -247,6 +247,37 @@ export default{
       }
       
       this.error = ''
+      const fetchWithTimeout = async (url, timeout = 45000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  };
+  
+  try {
+    // Пробуем подключиться с таймаутом 45 секунд
+    const response = await fetchWithTimeout(
+      `${this.API_URL}/users?name=${this.user.name}&pass=${this.user.pass}`,
+      45000
+    );
+    
+    // ... обработка ответа ...
+    
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      this.error = 'Сервер долго просыпается. Попробуйте еще раз через минуту.';
+    } else {
+      this.error = `Ошибка: ${error.message}`;
+    }
+  }
+},
       
       // Проверяем пользователя на сервере
       try {
