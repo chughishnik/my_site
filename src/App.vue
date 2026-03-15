@@ -186,7 +186,7 @@ export default{
       isCorrect: false,
       showCorrectAnswer: false,
       shuffledOptions: [],
-      API_URL: 'https://my-site-fe5z.onrender.com',
+      API_URL: 'https://my-site-bczh.onrender.com',
       loading: false
     }
   },
