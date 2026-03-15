@@ -186,7 +186,7 @@ export default{
       isCorrect: false,
       showCorrectAnswer: false,
       shuffledOptions: [],
-      API_URL: 'http://26.207.53.253/8:3000',
+      API_URL: 'http://26.207.53.253:3000',
       loading: false
     }
   },
