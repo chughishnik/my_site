@@ -186,7 +186,8 @@ export default{
       isCorrect: false,
       showCorrectAnswer: false,
       shuffledOptions: [],
-      API_URL: 'http://26.207.53.253/8:3000' // ПЕРЕМЕЩЕНО СЮДА
+      API_URL: 'http://26.207.53.253/8:3000',
+      loading: false
     }
   },
   computed: {
@@ -209,18 +210,21 @@ export default{
   methods: {
     // ЗАГРУЗКА ВИКТОРИН С СЕРВЕРА
     async loadQuizes() {
+      this.loading = true;
       try {
         const response = await fetch(`${this.API_URL}/quizes`);
-        if (response.ok) {
-          this.quizes = await response.json();
-          console.log('Викторины загружены:', this.quizes);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        this.quizes = await response.json();
+        console.log('Викторины загружены:', this.quizes);
       } catch (error) {
         console.error('Ошибка загрузки викторин:', error);
-      }
-    },    
-
-    // УДАЛЯЕМ saveQuizes - он не нужен, так как мы сохраняем каждую викторину отдельно
+        this.error = 'Не удалось подключиться к серверу. Проверьте подключение к сети.';
+      }finally {
+    this.loading = false;
+    }
+    },
 
     // ОТПРАВКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ (исправлено)
     async sendData() {
