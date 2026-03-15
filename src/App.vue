@@ -186,7 +186,7 @@ export default{
       isCorrect: false,
       showCorrectAnswer: false,
       shuffledOptions: [],
-      API_URL: 'http://localhost:3000' // ПЕРЕМЕЩЕНО СЮДА
+      API_URL: 'http://26.207.53.253/8:3000' // ПЕРЕМЕЩЕНО СЮДА
     }
   },
   computed: {
