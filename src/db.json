@@ -1,0 +1,40 @@
+{
+  "users": [
+    {
+      "id": "7eaf",
+      "name": "вап",
+      "pass": "sdfg"
+    },
+    {
+      "id": "3e2f",
+      "name": "морл",
+      "pass": "прол"
+    }
+  ],
+  "quizes": [
+    {
+      "id": "3cdc",
+      "title": "тест",
+      "slideCount": 2,
+      "slides": [
+        {
+          "question": "работает?",
+          "cor": "да",
+          "wrng1": "нет",
+          "wrng2": "нет",
+          "wrng3": "нет"
+        },
+        {
+          "question": "точно?",
+          "cor": "да",
+          "wrng1": "нет",
+          "wrng2": "нет",
+          "wrng3": "нет"
+        }
+      ],
+      "createdBy": "вап",
+      "createdAt": "2026-03-15T07:27:02.378Z"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}

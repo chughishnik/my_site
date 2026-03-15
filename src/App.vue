@@ -180,15 +180,16 @@ export default{
         slides: []
       },
       quizes: [],
-      currentQuiz: null, // ИСПРАВЛЕНО: было cur_quiz: null
+      currentQuiz: null,
       selectedOption: '',
       showResult: false,
       isCorrect: false,
       showCorrectAnswer: false,
-      shuffledOptions: []
+      shuffledOptions: [],
+      API_URL: 'http://localhost:3000' // ПЕРЕМЕЩЕНО СЮДА
     }
   },
-  computed: {  // ПЕРЕМЕЩЕНО: computed должен быть перед methods
+  computed: {
     currentSlide() {
       if (this.currentQuiz && this.currentQuiz.slides) {
         return this.currentQuiz.slides[this.quiz.currentSlideIndex];
@@ -196,7 +197,7 @@ export default{
       return null;
     }
   },
-  watch: {  // watch после computed
+  watch: {
     'quiz.currentSlideIndex': {
       handler() {
         this.shuffleOptions();
@@ -206,7 +207,23 @@ export default{
     }
   },
   methods: {
-    sendData() {
+    // ЗАГРУЗКА ВИКТОРИН С СЕРВЕРА
+    async loadQuizes() {
+      try {
+        const response = await fetch(`${this.API_URL}/quizes`);
+        if (response.ok) {
+          this.quizes = await response.json();
+          console.log('Викторины загружены:', this.quizes);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки викторин:', error);
+      }
+    },    
+
+    // УДАЛЯЕМ saveQuizes - он не нужен, так как мы сохраняем каждую викторину отдельно
+
+    // ОТПРАВКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ (исправлено)
+    async sendData() {
       if(this.user.name == '') {
         this.error = 'Имя не введено'
         return;
@@ -217,21 +234,59 @@ export default{
       }
       
       this.error = ''
-      this.user.aut = true
-
-      this.users.push({
-        name: this.user.name,
-        pass: this.user.pass
-      })
+      
+      // Проверяем пользователя на сервере
+      try {
+        console.log('Проверка пользователя:', `${this.API_URL}/users?name=${this.user.name}&pass=${this.user.pass}`);
+        const response = await fetch(`${this.API_URL}/users?name=${this.user.name}&pass=${this.user.pass}`);
+        const users = await response.json();
+        
+        if (users.length > 0) {
+          console.log('Пользователь найден');
+          this.user.aut = true;
+          this.users = users; // Сохраняем пользователей
+        } else {
+          console.log('Регистрация нового пользователя');
+          // Регистрируем нового пользователя
+          const newUser = {
+            name: this.user.name,
+            pass: this.user.pass
+          };
+          
+          const regResponse = await fetch(`${this.API_URL}/users`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newUser)
+          });
+          
+          if (regResponse.ok) {
+            const savedUser = await regResponse.json();
+            this.users.push(savedUser);
+            this.user.aut = true;
+          }
+        }
+        
+        // Загружаем викторины
+        await this.loadQuizes();
+        
+      } catch (error) {
+        console.error('Ошибка авторизации:', error);
+        this.error = 'Ошибка соединения с сервером';
+      }
     },
+
     create_quiz() {
       this.quiz.Ans = false
       this.quiz.Create_quiz = true
     },
+    
     start_quiz() {
       this.quiz.Ans = false
       this.quiz.Start_quiz = true
     },
+    
     back_to_menu() {
       this.quiz.Ans = true
       this.quiz.Start_quiz = false
@@ -241,6 +296,7 @@ export default{
       this.currentQuiz = null
       this.error = ''
     },
+    
     quiz_crt() {
       if(this.quiz.title == '') {
         this.error = 'Название не введено'
@@ -250,25 +306,26 @@ export default{
       this.quiz.continue_create = true
       this.quiz.Create_quiz = false
       this.quiz.slides = []
-      this.quiz.curslide = 0 // ДОБАВЛЕНО
+      this.quiz.curslide = 0
     },
+    
     quiz_check() {
       console.log('Все викторины:', this.quizes);
       if(this.quiz.title == '') {
-        this.error = 'Название не введено' // ИСПРАВЛЕНО
+        this.error = 'Название не введено'
         return;
       }
       
       // Ищем викторину по названию
-      const foundQuiz = this.quizes.find(q => q.title === this.quiz.title) // ИСПРАВЛЕНО
+      const foundQuiz = this.quizes.find(q => q.title === this.quiz.title)
       
-      if(foundQuiz) { // ИСПРАВЛЕНО
+      if(foundQuiz) {
         this.error = ''
         this.currentQuiz = foundQuiz
         this.quiz.isPlaying = true
         this.quiz.Start_quiz = false
         this.quiz.currentSlideIndex = 0
-        this.$nextTick(() => { // ДОБАВЛЕНО: ждем обновления DOM
+        this.$nextTick(() => {
           this.shuffleOptions()
           this.resetQuestionState()
         })
@@ -276,6 +333,7 @@ export default{
         this.error = 'Викторина с таким названием не найдена'
       }
     },
+    
     next_slide() {
       if (!this.quiz.slide.question || !this.quiz.slide.cor || 
           !this.quiz.slide.wrng1 || !this.quiz.slide.wrng2 || !this.quiz.slide.wrng3) {
@@ -311,16 +369,42 @@ export default{
         this.finish_quiz_creation()
       }
     },
-    finish_quiz_creation() {
-      // Сохраняем викторину в общий список
-      this.quizes.push({
+    
+    // ИСПРАВЛЕННЫЙ МЕТОД finish_quiz_creation (только один!)
+    async finish_quiz_creation() {
+      // Сохраняем викторину
+      const newQuiz = {
         title: this.quiz.title,
         slideCount: this.quiz.slideCount,
         slides: [...this.quiz.slides],
-        createdBy: this.user.name
-      })
-      this.back_to_menu()
+        createdBy: this.user.name,
+        createdAt: new Date().toISOString()
+      };
+      
+      try {
+        console.log('Сохраняем викторину:', newQuiz);
+        const response = await fetch(`${this.API_URL}/quizes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newQuiz)
+        });
+        
+        if (response.ok) {
+          const savedQuiz = await response.json();
+          this.quizes.push(savedQuiz);
+          console.log('Викторина сохранена:', savedQuiz);
+        } else {
+          console.error('Ошибка сохранения, статус:', response.status);
+        }
+      } catch (error) {
+        console.error('Ошибка сохранения викторины:', error);
+      }
+      
+      this.back_to_menu();
     },
+    
     shuffleOptions() {
       if (this.currentSlide) {
         const options = [
@@ -339,9 +423,11 @@ export default{
         this.shuffledOptions = options;
       }
     },
+    
     selectOption(option) {
       this.selectedOption = option;
     },
+    
     nextQuestion() {
       if (!this.currentSlide) return;
       
@@ -361,12 +447,14 @@ export default{
         this.resetQuestionState();
       }, 2000);
     },
+    
     resetQuestionState() {
       this.selectedOption = '';
       this.showResult = false;
       this.isCorrect = false;
       this.showCorrectAnswer = false;
     },
+    
     exitQuiz() {
       this.quiz.isPlaying = false;
       this.quiz.Ans = true;
