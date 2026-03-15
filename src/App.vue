@@ -186,7 +186,7 @@ export default{
       isCorrect: false,
       showCorrectAnswer: false,
       shuffledOptions: [],
-      API_URL: 'https://my-site-bczh.onrender.com',
+      API_URL: import.meta.env.VITE_API_URL || 'https://quiz-api.onrender.com',
       loading: false
     }
   },
@@ -208,7 +208,16 @@ export default{
     }
   },
   methods: {
-    // ЗАГРУЗКА ВИКТОРИН С СЕРВЕРА
+    ogApiUrl() {
+    console.log('Текущий API_URL:', import.meta.env.VITE_API_URL);
+    console.log('Все переменные окружения:', import.meta.env);
+    this.error = `API URL: ${import.meta.env.VITE_API_URL || 'не задан'}`; // Временно покажем на экране
+  },
+  
+    // Вызовите этот метод в mounted()
+    mounted() {
+      this.logApiUrl();
+    },
     async loadQuizes() {
       this.loading = true;
       try {
